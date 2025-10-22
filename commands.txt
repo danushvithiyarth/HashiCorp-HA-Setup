@@ -2,12 +2,65 @@
 
 kubectl apply -f sc.yaml 
 
+
 2. Create helm repo with vault_values.yaml
 
 helm install vault hashicorp/vault -n vault -f vault_values.yaml
+
 
 3. Expose vault UI by editing the vault service to LB:
 
 kubectl edit svc vault -n vault
 
 ## Open Port 8200
+
+
+4. To unseal the vault pods which are been sealed:
+
+a. Generate init tokens:
+
+kubectl exec -n vault -it vault-0 -- vault operator init
+
+save the tokens the 5 unseal tokens with the Cluster tokens
+
+Ex:
+Unseal Key 1: /KXsnVj9EVbOB
+Unseal Key 2: kVPMNsL7Us2YY
+Unseal Key 3: LyHTf+DERjb5YL
+Unseal Key 4: PDMusT+iLgWRcG
+Unseal Key 5: tbO2m6tfCRt9K6
+
+Initial Root Token: hvs.JtzVm4
+
+b. Unseal the pods using three or more Unseal token:
+
+kubectl exec -n vault -it vault-0 -- vault operator unseal kVPMNsL7Us2YYdUS
+
+Run this command with other tokens for every pods like:
+
+kubectl exec -n vault -it vault-1 -- vault operator unseal kVPMNsL7Us2YYdUS
+
+kubectl exec -n vault -it vault-2 -- vault operator unseal kVPMNsL7Us2YYdUS
+
+
+5. Login into vault:
+
+kubectl exec -n vault -it vault-0 -- vault login <Initial root token>
+
+After this we can login into vault UI using the LB service url in 8200 port.
+
+
+6. To allow Kubernetes and vault communication:
+
+kubectl exec -n vault -it vault-0 -- vault auth enable kubernetes
+
+
+7. Createing Serive account for application pod:
+
+kubectl create ns webapp
+
+kubectl create serviceaccount vault-auth -n webapp
+
+Here when the serivce account is created it will have it's own JWT token which will be signed by Kubernetes when a request is sent to vault, vault uses this token for authentication and sends back vault's token by which pods will access the secrets.
+
+
