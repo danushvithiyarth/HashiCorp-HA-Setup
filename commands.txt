@@ -61,6 +61,7 @@ kubectl create ns webapp
 
 kubectl create serviceaccount vault-auth -n webapp
 
-Here when the serivce account is created it will have it's own JWT token which will be signed by Kubernetes when a request is sent to vault, vault uses this token for authentication and sends back vault's token by which pods will access the secrets.
+Here when the serivce account is created it will have it's own JWT token which will be signed by Kubernetes when a 
+request is sent to vault, vault uses this token for authentication and sends back vault's token by which pods will access the secrets.
 
 
