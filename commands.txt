@@ -65,3 +65,61 @@ Here when the serivce account is created it will have it's own JWT token which w
 request is sent to vault, vault uses this token for authentication and sends back vault's token by which pods will access the secrets.
 
 
+8. Configuring Kubernetes Auth in vault:
+
+a. Here we sepecific the value:
+
+SERVICE_ACCOUNT_NAME=vault-auth
+NAMESPACE=webapp  # The correct namaspace 
+
+# Get JWT Token
+TOKEN_REVIEW_JWT=$(kubectl get secret \
+  $(kubectl get serviceaccount $SERVICE_ACCOUNT_NAME -n $NAMESPACE -o jsonpath="{.secrets[0].name}") \
+  -n $NAMESPACE -o jsonpath="{.data.token}" | base64 --decode)
+
+# Get Kubernetes API Host
+KUBE_HOST=$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.server}')
+
+# Get Kubernetes CA Certificate
+KUBE_CA_CERT=$(kubectl get secret \
+  $(kubectl get serviceaccount $SERVICE_ACCOUNT_NAME -n $NAMESPACE -o jsonpath="{.secrets[0].name}") \
+  -n $NAMESPACE -o jsonpath="{.data['ca.crt']}" | base64 --decode)
+
+b. Configure in Vault:
+
+kubectl exec -n vault -it vault-0 -- vault write auth/kubernetes/config \
+  token_reviewer_jwt="$TOKEN_REVIEW_JWT" \
+  kubernetes_host="$KUBE_HOST" \
+  kubernetes_ca_cert="$KUBE_CA_CERT"
+
+
+9. Creating vault policies:
+
+a. Create app_policy.hcl file with:
+
+# Access to read/write secret data for MySQL
+path "secret/data/mysql" {
+  capabilities = ["create", "update", "read", "delete", "list"]
+}
+
+path "secret/data/frontend" {
+  capabilities = ["create", "update", "read", "delete", "list"]
+}
+
+# Access to list secrets under the path
+path "secret/metadata/mysql" {
+  capabilities = ["list"]
+}
+
+path "secret/metadata/frontend" {
+  capabilities = ["list"]
+}
+
+# "secret/data/mysql" and "secret/data/frontend" is for storing secrets. 
+# "secret/metadata/mysql" and "secret/metadata/frontend" is for storing secrects version history.
+
+b. Apply the file:
+
+kubectl cp app_policy.hcl vault/vault-0:/tmp/app_policy.hcl
+kubectl exec -n vault -it vault-0 -- vault policy write app_policy /tmp/app_policy.hcl
+
