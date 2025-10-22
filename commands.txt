@@ -1,3 +1,6 @@
+
+### Note here all the vault command is been executed from the vault-0 Master pod.
+
 1. Create Storage Class:
 
 kubectl apply -f sc.yaml 
@@ -122,4 +125,73 @@ b. Apply the file:
 
 kubectl cp app_policy.hcl vault/vault-0:/tmp/app_policy.hcl
 kubectl exec -n vault -it vault-0 -- vault policy write app_policy /tmp/app_policy.hcl
+
+10. Creating a role in vault to Map policies to Pods:
+
+kubectl exec -n vault -it vault-0 -- vault write auth/kubernetes/role/vault-role \
+  bound_service_account_names=vault-auth \
+  bound_service_account_namespaces="webapp" \
+  policies=app-policy \
+  ttl=24h \
+  audience=vault
+
+
+11. Enable KV2 to allow secret versioning:
+
+kubectl exec -n vault -it vault-0 -- vault secrets enable -path=secret -version=2 kv
+
+
+12. To store/push secrets to vault:
+
+kubectl exec -n vault -it vault-0 -- vault kv put secret/mysql \
+  MYSQL_DATABASE=bankappdb \
+  MYSQL_ROOT_PASSWORD=Test@123
+
+kubectl exec -n vault -it vault-0 -- vault kv put secret/frontend \
+  MYSQL_ROOT_PASSWORD=Test@123
+
+Either we can use this command from cli or use Vault UI to create secrets.
+
+
+13. Deploy:
+
+Next use specific annotation to make the deployment file to access secrets from vaults like these:
+
+a. 
+"
+annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "vault-role"
+
+        # Inject MYSQL_ROOT_PASSWORD
+        vault.hashicorp.com/agent-inject-secret-mysql-root-password: "secret/mysql"
+        vault.hashicorp.com/agent-inject-template-mysql-root-password: |
+          {{- with secret "secret/mysql" -}}
+          export MYSQL_ROOT_PASSWORD="{{.Data.data.MYSQL_ROOT_PASSWORD}}"
+          {{- end}}
+
+        # Inject MYSQL_DATABASE
+        vault.hashicorp.com/agent-inject-secret-mysql-database: "secret/mysql"
+        vault.hashicorp.com/agent-inject-template-mysql-database: |
+          {{- with secret "secret/mysql" -}}
+          export MYSQL_DATABASE="{{.Data.data.MYSQL_DATABASE}}"
+          {{- end}}
+"
+
+b.
+"
+annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "vault-role"
+
+        # Inject all MySQL env vars in one template
+        vault.hashicorp.com/agent-inject-secret-mysql: "secret/mysql"
+        vault.hashicorp.com/agent-inject-template-mysql: |
+          {{- with secret "secret/mysql" -}}
+          export MYSQL_ROOT_PASSWORD="{{.Data.data.MYSQL_ROOT_PASSWORD}}"
+          export MYSQL_DATABASE="{{.Data.data.MYSQL_DATABASE}}"
+          {{- end}}
+"
+
+The full deployment manifest file in root location for the repo.
 
