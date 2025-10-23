@@ -1,0 +1,52 @@
+1. Configuring JWT token audience:
+
+From Vault v1.21+ we have to mention audience in the "Kubernetes Vault Role Setup" so value can assure the token is signed for pod to access value secret.
+
+The right command,
+
+kubectl exec -n vault -it vault-0 -- vault write auth/kubernetes/role/vault-role \
+  bound_service_account_names=vault-auth \
+  bound_service_account_namespaces=webapp \
+  policies=app-policy \
+  ttl=24h \
+  audience="https://kubernetes.default.svc" \ # the correct audience 
+  issuer="https://oidc.eks.eu-north-1.amazonaws.com/id/394F53EB45F4A5C9F405BD609807BB34" # with issuer 
+
+The audience and issuer feild is mentioned for vault to confirm that the token is signed by Kubernetes to allow pods to access the secret.
+
+We can find the audience and issuer details using this command:
+
+kubectl exec -n <application pod namespace> <application pod id> -c vault-agent-init -- \
+  cat /var/run/secrets/kubernetes.io/serviceaccount/token | \
+  cut -d '.' -f2 | \
+  base64 -d | \
+  jq .
+
+
+2. "app.jar" file issue:
+
+When deploying the application pod deployment file the intial "app.jar" file location for given as:
+
+"java -jar app.jar" 
+
+but it was not there in that location of the "app.jar" it was in:
+
+java -jar /usr/src/app/app.jar
+
+This information can we found by:
+
+kubectl run --rm -it debug --image=adijaiswal/bankapp:v4 -- /bin/sh # Create a debug container from the same image, so can we access the container.
+
+pwd
+
+ls -l
+
+find / -name "*.jar"
+
+These will login in to the container and file the jar file location.
+
+This was a problem for us because we used a public image which was build on this location "/usr/src/app/", instead if we had build the image
+we would have known the location of the "app.jar" file.
+
+Take away is how to find the location of the build file if there is an error in pod creating when using an public image.
+
