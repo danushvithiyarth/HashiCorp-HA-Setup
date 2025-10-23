@@ -128,14 +128,21 @@ b. Apply the file:
 kubectl cp app_policy.hcl vault/vault-0:/tmp/app_policy.hcl
 kubectl exec -n vault -it vault-0 -- vault policy write app_policy /tmp/app_policy.hcl
 
+
 10. Creating a role in vault to Map policies to Pods:
 
 kubectl exec -n vault -it vault-0 -- vault write auth/kubernetes/role/vault-role \
   bound_service_account_names=vault-auth \
-  bound_service_account_namespaces="webapp" \
+  bound_service_account_namespaces=webapp \
   policies=app-policy \
   ttl=24h \
-  audience=vault
+  audience="https://kubernetes.default.svc" \
+  issuer="https://oidc.eks.eu-north-1.amazonaws.com/id/394F53EB45F4A5C9F405BD609807BB34"
+
+Check the audience inside the pod for debugging purpose if any error occur with audience:
+
+kubectl exec -n <namespace> <pod> -c vault-agent-init -- cat /var/run/secrets/kubernetes.io/serviceaccount/token | cut -d '.' -f2 | base64 -d | jq .
+
 
 
 11. Enable KV2 to allow secret versioning:
