@@ -103,17 +103,17 @@ kubectl exec -n vault -it vault-0 -- vault write auth/kubernetes/config \
 a. Create app_policy.hcl file with:
 
 # Access to read/write secret data for MySQL
+
 path "secret/data/mysql" {
   capabilities = ["create", "update", "read", "delete", "list"]
 }
 
-path "secret/data/frontend" {
-  capabilities = ["create", "update", "read", "delete", "list"]
-}
-
-# Access to list secrets under the path
 path "secret/metadata/mysql" {
   capabilities = ["list"]
+}
+
+path "secret/data/frontend" {
+  capabilities = ["create", "update", "read", "delete", "list"]
 }
 
 path "secret/metadata/frontend" {
@@ -125,7 +125,8 @@ path "secret/metadata/frontend" {
 
 b. Apply the file:
 
-kubectl cp app_policy.hcl vault/vault-0:/tmp/app_policy.hcl
+kubectl cp ./app_policy.hcl vault/vault-0:/tmp/app_policy.hcl
+
 kubectl exec -n vault -it vault-0 -- vault policy write app_policy /tmp/app_policy.hcl
 
 
