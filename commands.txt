@@ -10,6 +10,10 @@ kubectl apply -f sc.yaml
 
 kubectl create ns vault 
 
+helm repo add hashicorp https://helm.releases.hashicorp.com
+
+helm repo update
+
 helm install vault hashicorp/vault -n vault -f vault_values.yaml
 
 
